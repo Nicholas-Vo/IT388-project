@@ -10,14 +10,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <mpi.h>
 
-#define n 13 // The number of nodes
+#define n 550 // The number of nodes
 int distance[n][n]; // distance[i][j] is the length of the edge between i and j if it exists, or 0 if it does not
 double start, elapsed;
 
 void printDistance();
 
-void floyd_warshall();
+void floyd_warshall(int rank, int work);
 
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
@@ -40,7 +41,8 @@ int main(int argc, char *argv[]) {
     printDistance(); // print the new array
 
     start = MPI_Wtime();
-    floyd_warshall();
+    int work = n / nproc;
+    floyd_warshall(rank, work);
     elapsed = MPI_Wtime() - start;
 
     printDistance(); // print again the new array with the shortest paths
@@ -71,12 +73,13 @@ void printDistance() {
 	between i and j if it exists (i.e. if there's a path between i and j)
 	or 0 if it does not exist
 */
-void floyd_warshall() {
+void floyd_warshall(int rank, int work) {
     int i, j, k;
 
-    for (k = 0; k < n; ++k)
-        for (i = 0; i < n; ++i)
-            if (i % nproc == rank) {
+    for (k = 0; k < n; ++k) {
+
+        for (int i = rank * work; i <= rank * work + work; i++) {
+            for (i = 0; i < n; ++i)
                 for (j = 0; j < n; ++j)
                     /* If i and j are different nodes and if
                         the paths between i and k and between
@@ -87,5 +90,6 @@ void floyd_warshall() {
                             k somewhere along the current path */
                         if ((distance[i][k] + distance[k][j] < distance[i][j]) || (distance[i][j] == 0))
                             distance[i][j] = distance[i][k] + distance[k][j];
-            }
+        }
+    }
 }
