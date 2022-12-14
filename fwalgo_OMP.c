@@ -9,7 +9,7 @@
 #include <omp.h>
 #include <stdlib.h>
 
-#define n 13 // The number of nodes
+#define n 10 // The number of nodes
 int distance[n][n]; // distance[i][j] is the length of the edge between i and j if it exists, or 0 if it does not
 double start, elapsed;
 
@@ -31,12 +31,14 @@ int main(int argc, char *argv[]) {
             else
                 distance[i][j] = (int) (11.0 * rand() / (RAND_MAX + 1.0)); //number creator 0-10
 
+    printf("Original Matrix:\n");
     printDistance(); // printout the new array
 
     start = omp_get_wtime();
     floyd_warshall();
     elapsed = omp_get_wtime() - start;
 
+    printf("Updated Matrix:\n");
     printDistance(); // printout again the new array with shortest paths (uses floyd_warshall())
 
     printf("Elapsed Time:  %f seconds\n", elapsed);
@@ -46,17 +48,22 @@ int main(int argc, char *argv[]) {
 
 void printDistance() {
     int i, j;
-    printf("    ");
-    for (i = 0; i < n; ++i)
-        printf("%4c", 'A' + i);
-    printf("\n");
-    for (i = 0; i < n; ++i) {
-        printf("%4c", 'A' + i);
-        for (j = 0; j < n; ++j)
-            printf("%4d", distance[i][j]);
+    if(n < 30){
+        printf("    ");
+        for (i = 0; i < n; ++i)
+            printf("%4c", 'A' + i);
+        printf("\n");
+        for (i = 0; i < n; ++i) {
+            printf("%4c", 'A' + i);
+            for (j = 0; j < n; ++j)
+                printf("%4d", distance[i][j]);
+            printf("\n");
+        }
         printf("\n");
     }
-    printf("\n");
+    else{
+        printf("Graph too big\n");
+    }
 }
 
 /*
