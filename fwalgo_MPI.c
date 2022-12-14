@@ -6,13 +6,14 @@
 #define V 4
 #define INF INT_MAX
 
+int dist[V][V], final[V][V];
+
 void printSolution(int final[][V]);
 void floydWarshall(int graph[][V], int rank, int size);
 
 
 int main(int argc, char* argv[])
 {
-    int dist[V][V], final[V][V];
     int size, rank;
     double start, elapsed;
 
