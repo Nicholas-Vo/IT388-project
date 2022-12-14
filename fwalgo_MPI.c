@@ -25,6 +25,43 @@ void print() {
     printf("\n");
 }
 
+void sequential(int graph[n][n]) {
+    int matrix[n][n], i, j, k;
+    double start = MPI_Wtime();
+
+    for (i = 0; i < n; i++)
+        for (j = 0; j < n; j++)
+            matrix[i][j] = graph[i][j];
+
+    // Adding vertices individually
+    for (k = 0; k < n; k++) {
+        for (i = 0; i < n; i++) {
+            for (j = 0; j < n; j++) {
+                if (matrix[i][k] + matrix[k][j] < matrix[i][j])
+                    matrix[i][j] = matrix[i][k] + matrix[k][j];
+            }
+        }
+    }
+    double end = MPI_Wtime();
+    if (n < 21) {
+        print();
+    }
+    printf("total time %f \n", end - start);
+}
+
+void init() {
+    int i, j;
+    for (i = 0; i < n; ++i) {
+        for (j = 0; j < n; ++j) {
+            if (i == j) {
+                dist[i][j] = 0;
+            } else {
+                dist[i][j] = (int) (11.0 * rand() / (RAND_MAX + 1.0));
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     MPI_Status status;
     MPI_Init(&argc, &argv);
@@ -33,30 +70,22 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int balance, slice;
-    if (nproc == 1) { // prevent division by 0
-        balance = n % 1;
-        slice = (n - balance) / 1;
-    } else {
-        balance = n % (nproc - 1);
-        slice = (n - balance) / (nproc - 1);
+    if (nproc < 2) {
+        init();
+        sequential(dist);
+        return 0;
     }
+
+    int balance = n % (nproc - 1);
+    int slice = (n - balance) / (nproc - 1);
+
     if (rank == MASTER) {
         int disable = 0;
         int t = 3;
         int result[t];
         int i, j;
-        /* init */
-        for (i = 0; i < n; ++i) {
-            for (j = 0; j < n; ++j) {
-                if (i == j) {
-                    dist[i][j] = 0;
-                } else {
-                    dist[i][j] = (int) (11.0 * rand() / (RAND_MAX + 1.0));
-                }
-            }
-        }
 
+        init();
         if (n < 21) {
             print();
         }
@@ -109,7 +138,6 @@ int main(int argc, char *argv[]) {
         }
         MPI_Send(0, 0, MPI_INT, MASTER, DEST_ID, MPI_COMM_WORLD);
     }
-
     MPI_Finalize();
     return 0;
 }
