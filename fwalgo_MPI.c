@@ -5,7 +5,7 @@
 #define MASTER 0
 #define WORKER_ID 1
 #define DEST_ID 2
-#define n 1512 /* Then number of nodes */
+#define n 25 /* Then number of nodes */
 
 int dist[n][n];
 
@@ -29,29 +29,39 @@ int main(int argc, char *argv[]) {
     MPI_Status status;
     MPI_Init(&argc, &argv);
 
-    int rank;
-    int nproc;
+    int rank, nproc;
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int balance = n % (nproc - 1);
-    int slice = (n - balance) / (nproc - 1);
+    int balance, slice;
+    if (nproc == 1) { // prevent division by 0
+        balance = n % 1;
+        slice = (n - balance) / 1;
+    } else {
+        balance = n % (nproc - 1);
+        slice = (n - balance) / (nproc - 1);
+    }
 
     if (rank == MASTER) {
-        int disable = 0, t = 3;
+        int disable = 0;
+        int t = 3;
         int result[t];
         int i, j;
         /* init */
-        for (i = 0; i < n; ++i)
-            for (j = 0; j < n; ++j)
-                if (i == j)
+        for (i = 0; i < n; ++i) {
+            for (j = 0; j < n; ++j) {
+                if (i == j) {
                     dist[i][j] = 0;
-                else
+                } else {
                     dist[i][j] = (int) (11.0 * rand() / (RAND_MAX + 1.0));
+                }
+            }
+        }
 
         if (n < 21) {
             print();
         }
+
         double start = MPI_Wtime();
         for (i = 1; i < nproc; i++)
             MPI_Send(&dist, n * n, MPI_INT, i, WORKER_ID, MPI_COMM_WORLD);
