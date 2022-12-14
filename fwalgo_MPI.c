@@ -5,7 +5,7 @@
 #define MASTER 0
 #define WORKER_ID 1
 #define DEST_ID 2
-#define n 25 /* Then number of nodes */
+#define n 5 /* Then number of nodes */
 
 int dist[n][n];
 
@@ -41,7 +41,6 @@ int main(int argc, char *argv[]) {
         balance = n % (nproc - 1);
         slice = (n - balance) / (nproc - 1);
     }
-
     if (rank == MASTER) {
         int disable = 0;
         int t = 3;
@@ -63,11 +62,16 @@ int main(int argc, char *argv[]) {
         }
 
         double start = MPI_Wtime();
-        for (i = 1; i < nproc; i++)
-            MPI_Send(&dist, n * n, MPI_INT, i, WORKER_ID, MPI_COMM_WORLD);
+        if (nproc != 1) {
+            for (i = 1; i < nproc; i++) {
+                MPI_Send(&dist, n * n, MPI_INT, i, WORKER_ID, MPI_COMM_WORLD);
+            }
+        }
 
         do {
-            MPI_Recv(&result, t, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            if (nproc != 1) {
+                MPI_Recv(&result, t, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            }
 
             if (status.MPI_TAG == DEST_ID) {
                 disable++;
