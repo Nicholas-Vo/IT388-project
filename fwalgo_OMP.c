@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
 void printDistance() {
     int i, j;
-    if(n < 30){
+    if (n < 30) {
         printf("    ");
         for (i = 0; i < n; ++i)
             printf("%4c", 'A' + i);
@@ -60,8 +60,7 @@ void printDistance() {
             printf("\n");
         }
         printf("\n");
-    }
-    else{
+    } else {
         printf("Graph too big\n");
     }
 }

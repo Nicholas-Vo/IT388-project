@@ -1,99 +1,101 @@
 #include <stdio.h>
+#include "mpi.h"
 #include <stdlib.h>
-#include <limits.h>
-#include <mpi.h>
 
-#define V 4
-#define INF INT_MAX
+#define MASTER 0
+#define WORKER_ID 1
+#define DEST_ID 2
+#define n 1512 /* Then number of nodes */
 
-int dist[V][V], final[V][V];
+int dist[n][n];
 
-void printSolution(int final[][V]);
-void floydWarshall(int graph[][V], int rank, int size);
+void print() {
+    printf("    ");
+    int i;
+    for (i = 0; i < n; ++i)
+        printf("%4c", 'A' + i);
+    printf("\n");
+    int j;
+    for (i = 0; i < n; ++i) {
+        printf("%4c", 'A' + i);
+        for (j = 0; j < n; ++j)
+            printf("%4d", dist[i][j]);
+        printf("\n");
+    }
+    printf("\n");
+}
 
-
-int main(int argc, char* argv[])
-{
-    int size, rank;
-    double start, elapsed;
-
+int main(int argc, char *argv[]) {
+    MPI_Status status;
     MPI_Init(&argc, &argv);
-    MPI_Comm comm; MPI_Status status; comm = MPI_COMM_WORLD;
-    MPI_Comm_size(comm, &size);
-    MPI_Comm_rank(comm, &rank);
 
-    // Define the input graph
-    int graph[V][V] = { {0,   5,  INF, 10},
-                        {INF, 0,   3, INF},
-                        {INF, INF, 0,   1},
-                        {INF, INF, INF, 0}
-                      };
+    int rank;
+    int nproc;
+    MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    //Start time measurement
-    start = MPI_Wtime();
+    int balance = n % (nproc - 1);
+    int slice = (n - balance) / (nproc - 1);
 
-    // Run the Floyd-Warshall algorithm on the input graph
-    floydWarshall(graph, rank, size);
+    if (rank == MASTER) {
+        int disable = 0, t = 3;
+        int result[t];
+        int i, j;
+        /* init */
+        for (i = 0; i < n; ++i)
+            for (j = 0; j < n; ++j)
+                if (i == j)
+                    dist[i][j] = 0;
+                else
+                    dist[i][j] = (int) (11.0 * rand() / (RAND_MAX + 1.0));
 
-    //Calculate time measurements
-    elapsed = MPI_Wtime() - start;
+        if (n < 21) {
+            print();
+        }
+        double start = MPI_Wtime();
+        for (i = 1; i < nproc; i++)
+            MPI_Send(&dist, n * n, MPI_INT, i, WORKER_ID, MPI_COMM_WORLD);
 
-    //Print the final solution
-    printSolution(final);
+        do {
+            MPI_Recv(&result, t, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-    //Prints out elapsed time
-    printf("Elapsed time: %f seconds, Number of processors: %d\n", elapsed, size);
+            if (status.MPI_TAG == DEST_ID) {
+                disable++;
+            } else if (dist[result[1]][result[2]] > result[0]) {
+                dist[result[1]][result[2]] = result[0];
+            }
+        } while (disable < nproc - 1);
+
+        double end = MPI_Wtime();
+        if (n < 21) {
+            print();
+        }
+
+        printf("total time %f \n", end - start);
+    } else {
+        int i, j, k, t = 3;
+        int out[t];
+        MPI_Recv(&dist, n * n, MPI_INT, MASTER, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        if (rank + 1 != nproc) {
+            balance = 0;
+        }
+        for (k = slice * (rank - 1); k < slice * (rank - 1) + slice + balance; ++k) {
+            for (i = 0; i < n; ++i) {
+                for (j = 0; j < n; ++j) {
+                    if ((dist[i][k] * dist[k][j] != 0) && (i != j))
+                        if ((dist[i][k] + dist[k][j] < dist[i][j]) || (dist[i][j] == 0)) {
+                            dist[i][j] = dist[i][k] + dist[k][j];
+                            out[0] = dist[i][j];
+                            out[1] = i;
+                            out[2] = j;
+                            MPI_Send(&out, t, MPI_INT, MASTER, 0, MPI_COMM_WORLD);
+                        }
+                }
+            }
+        }
+        MPI_Send(0, 0, MPI_INT, MASTER, DEST_ID, MPI_COMM_WORLD);
+    }
 
     MPI_Finalize();
-
     return 0;
-}
-
-
-void floydWarshall(int graph[][V], int rank, int size)
-{
-    int i, j, k;
-    int start = rank * V / size;
-    int end = (rank + 1) * V / size;
-
-    // Initialize the distance matrix with the values from the input graph
-    for (i = start; i < end; i++)
-        for (j = 0; j < V; j++)
-            dist[i][j] = graph[i][j];
-
-    for (k = 0; k < V; k++)
-    {
-        // Broadcast the current value of k to all processes
-        MPI_Bcast(&k, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-        for (i = start; i < end; i++)
-        {
-            for (j = 0; j < V; j++)
-            {
-                if (dist[i][k] != INF && dist[k][j] != INF &&
-                    dist[i][k] + dist[k][j] < dist[i][j])
-                    dist[i][j] = dist[i][k] + dist[k][j];
-            }
-        }
-
-        // Gather the updated distances from each process and update the global distance matrix
-        MPI_Allgather(&dist[start][0], end - start, MPI_INT, &final[0][0], end - start, MPI_INT, MPI_COMM_WORLD);
-    }
-}
-
-void printSolution(int final[][V])
-{
-    int i, j;
-    // Print if the matrix is less than 12
-    if(V < 12){
-        for (i = 0; i < V; i++){
-            for (j = 0; j < V; j++){
-                if (dist[i][j] == INF)
-                    printf("%7s", "INF");
-                else
-                    printf("%7d", dist[i][j]);
-            }
-            printf("\n");
-        }
-    }
 }
